@@ -28,6 +28,7 @@ public class DependencyManager implements Listener {
     private final EvenMoreFish plugin;
     private Permission permission;
     private HeadDatabaseAPI hdbapi;
+    private HeadDBIntegration headDBIntegration;
 
     // Dependency flags
     private boolean usingVault;
@@ -73,8 +74,10 @@ public class DependencyManager implements Listener {
         }
 
 
-        if (usingHeadsDB) {
-            pm.registerEvents(new HeadDBIntegration(), plugin);
+        if (usingHeadsDB && headDBIntegration == null) {
+            HeadDBIntegration listener = new HeadDBIntegration();
+            pm.registerEvents(listener, plugin);
+            headDBIntegration = listener;
         }
 
         if (usingAuraSkills && MainConfig.getInstance().disableAuraSkills()) {

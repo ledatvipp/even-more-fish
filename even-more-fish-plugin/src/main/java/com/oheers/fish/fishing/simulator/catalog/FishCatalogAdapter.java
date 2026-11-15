@@ -23,8 +23,9 @@ public final class FishCatalogAdapter {
             if(rarity.isDisabled() || !Double.isFinite(rarity.getWeight()) || rarity.getWeight()<=0)continue;
             for(Fish fish:rarity.getOriginalFishList()) {
                 if(fish.getCatchType()==CatchType.HUNT)continue;
-                if(!Double.isFinite(fish.getWeight()) || fish.getWeight()<=0)continue;
-                double composite=rarity.getWeight()*fish.getWeight();
+                double fishWeight=FishManager.getBaseFishWeight(fish);
+                if(!Double.isFinite(fishWeight) || fishWeight<=0)continue;
+                double composite=rarity.getWeight()*fishWeight;
                 if(composite>0 && Double.isFinite(composite)){
                     weight+=composite;result.add(new Entry(new FishKey(rarity.getId(),fish.getName()),composite));
                 }

@@ -27,6 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Instant;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -159,7 +160,10 @@ public final class AutoFishMenuManager implements Listener {
                         " ",
                         "<dark_gray> ○ <white>Trạng thái: " + (active ? "<green>Đang hoạt động</green>" : "<red>Đang tạm dừng</red>"),
                         "<dark_gray> ○ <white>Hạng Gói Auto: " + profile.getActiveTierDisplayName(),
-                        "<dark_gray> ○ <white>Thời gian còn lại: <yellow>" + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</yellow>",
+                        "<dark_gray> ○ <white>Thời gian còn lại: <yellow>" + AutoFishProfile.formatDuration(service.getAvailableSeconds(player)) + "</yellow>",
+                        "<dark_gray> ○ <white>Quota tuần: <yellow>" + AutoFishProfile.formatDuration(profile.getWeeklyRemainingSeconds(AutoFishWeeklyQuota.weekStart(Instant.now()), AutoFishWeeklyQuota.limitSeconds(player))) + "</yellow>",
+                        "<dark_gray> ○ <white>Thời gian mua còn: <yellow>" + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</yellow>",
+                        "<dark_gray> ○ <white>Reset: <aqua>Thứ Hai 00:00 (Việt Nam)</aqua>",
                         "<dark_gray> ○ <white>Tổng cá đã Auto: <green>" + String.format(Locale.US, "%,d", profile.getTotalAutoCatches()) + "</green> con",
                         " ",
                         "<dark_gray> ○ <white>Thống kê AI phiên hiện tại:",
@@ -175,27 +179,7 @@ public final class AutoFishMenuManager implements Listener {
         ));
 
         // 3. Slot 13: Main Toggle Button
-        String statusText = active ? "<green>Đang Bật</green>" : "<red>Đang Tắt</red>";
-        inventory.setItem(SLOT_TOGGLE, createPane(
-                Material.FISHING_ROD,
-                active ? "<green><bold>⚡ AI AUTO CÂU CÁ: ĐANG BẬT ⚡</bold></green>" : "<red><bold>○ AI AUTO CÂU CÁ: ĐANG TẮT ○</bold></red>",
-                List.of(
-                        " ",
-                        "<dark_gray> ○ <white>Trạng thái: " + statusText,
-                        "<dark_gray> ○ <white>Thời gian còn lại: <yellow>" + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</yellow>",
-                        "<dark_gray> ○ <white>Đặc quyền đang bật: " + profile.getActiveTierDisplayName(),
-                        " ",
-                        "<dark_gray> ○ <white>Chỉ số AI & Buff hiện tại:",
-                        "  <dark_gray> -<gray> Tỉ lệ câu hụt:</gray> <dark_gray>(<green>" + DEC_FORMAT.format(profile.getMissChancePercent()) + "%<dark_gray>)",
-                        "  <dark_gray> -<blue> Delay mỗi đợt:</blue> <dark_gray>(<green>" + DEC_FORMAT.format(profile.getCastDelaySeconds()) + "s<dark_gray>)",
-                        "  <dark_gray> -<light_purple> Phản xạ giật cần:</light_purple> <dark_gray>(<green>" + DEC_FORMAT.format(profile.getReactionSeconds()) + "s<dark_gray>)",
-                        "  <dark_gray> -<gold> Buff VIP (May mắn/Cắn câu):</gold> <dark_gray>(<green>+" + (int) Math.round(profile.getPackageLuckBonus() * 100) + "% / +" + (int) Math.round(profile.getPackageLureBonus() * 100) + "%<dark_gray>)",
-                        " ",
-                        active ? "<#C797FF>Nhấp chuột <white>để TẮT" : "<#A8D8EA>Nhấp chuột <white>để BẬT",
-                        "<white>chế độ AI câu cá tự động!"
-                ),
-                active
-        ));
+        inventory.setItem(SLOT_TOGGLE, buildToggleButton(player, service));
         holder.putAction(SLOT_TOGGLE, "TOGGLE");
 
         // 4. Row 3: Time Packages with VIP Perks & First-Purchase / Loyalty Bonuses
@@ -374,6 +358,30 @@ public final class AutoFishMenuManager implements Listener {
         } else {
             player.openInventory(inventory);
         }
+    }
+
+    public void refreshToggle(@NotNull Player player, @NotNull AutoFishingService service) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (top.getHolder() instanceof AutoFishHolder holder && holder.playerId.equals(player.getUniqueId())) {
+            top.setItem(SLOT_TOGGLE, buildToggleButton(player, service));
+        }
+    }
+
+    private ItemStack buildToggleButton(Player player, AutoFishingService service) {
+        AutoFishProfile profile = service.getProfile(player.getUniqueId());
+        long limit = AutoFishWeeklyQuota.limitSeconds(player);
+        profile.getWeeklyRemainingSeconds(AutoFishWeeklyQuota.weekStart(Instant.now()), limit);
+        int percent = AutoFishWeeklyQuota.usedPercent(profile.getWeeklyUsedSeconds(), limit);
+        boolean active = service.isActive(player.getUniqueId());
+        return createPane(Material.FISHING_ROD, "<aqua>Auto Câu Cá</aqua>", List.of(
+                " ",
+                "<dark_gray> ○ <white>Trạng thái: " + (active ? "<green>Bật</green>" : "<red>Tắt</red>"),
+                " ",
+                "<dark_gray> ○ <white>Giới hạn tuần đã dùng:",
+                "  " + AutoFishWeeklyQuota.progressBar(percent) + " <white>" + percent + "%",
+                " ",
+                "<#A8D8EA>Nhấn <white>để " + (active ? "tắt" : "bật")
+        ), active);
     }
 
     public static long computeGrantedPackageSeconds(@NotNull TimePackage pkg, @NotNull AutoFishProfile profile) {
@@ -608,7 +616,7 @@ public final class AutoFishMenuManager implements Listener {
                             "<green><bold>✔ MUA GÓI AUTO THÀNH CÔNG!</bold></green> <white>Đã cộng <yellow>+"
                                     + AutoFishProfile.formatDuration(grantedSeconds)
                                     + "</yellow> & kích hoạt đặc quyền " + profile.getActiveTierDisplayName()
-                                    + " <gray>(Tổng: <aqua>" + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</aqua>)</gray>.</white>"
+                                    + " <gray>(Tổng: <aqua>" + AutoFishProfile.formatDuration(service.getAvailableSeconds(player)) + "</aqua>)</gray>.</white>"
                     ));
                     if (wasFirstPurchase) {
                         player.sendMessage(mm(

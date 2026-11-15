@@ -41,20 +41,33 @@ public class UpdateChecker {
                 throw new IOException("HTTP " + response.statusCode());
             }
 
-            JSONArray versions = (JSONArray) new JSONParser().parse(response.body());
-            if (versions.isEmpty()) {
-                return plugin.getPluginMeta().getVersion();
-            }
-
-            JSONObject latestVersion = (JSONObject) versions.getFirst();
-            String version = latestVersion.get("version_number").toString();
-            int mcVersionSeparatorIndex = version.lastIndexOf("-");
-            return version.substring(0, mcVersionSeparatorIndex);
+            return parseVersionResponse(response.body(), plugin.getPluginMeta().getVersion());
         } catch (Exception e) {
             plugin.getLogger().warning("Update check failed: " + e.getMessage());
             plugin.getLogger().info("Manual update check: https://modrinth.com/plugin/evenmorefish/versions");
             return plugin.getPluginMeta().getVersion(); // Fallback
         }
+    }
+
+    static String parseVersionResponse(String body, String fallback) throws Exception {
+        Object parsed = new JSONParser().parse(body);
+        if (!(parsed instanceof JSONArray versions)) {
+            throw new IOException("Expected a version array");
+        }
+        if (versions.isEmpty()) {
+            return fallback;
+        }
+        if (!(versions.getFirst() instanceof JSONObject latest)
+                || !(latest.get("version_number") instanceof String version)
+                || version.isBlank()) {
+            throw new IOException("Missing version number");
+        }
+        int separator = version.lastIndexOf('-');
+        // Modrinth also returns plain release/SNAPSHOT versions without a Minecraft suffix.
+        if (separator > 0 && version.substring(separator + 1).matches("[0-9]+\\.[0-9]+(?:\\.[0-9]+)?")) {
+            return version.substring(0, separator);
+        }
+        return version;
     }
 
     // Checks for updates, surprisingly

@@ -230,12 +230,52 @@ final class JournalFilterController implements Listener {
         Inventory inventory = Bukkit.createInventory(holder, 27, Component.text("Bộ lọc nhật ký cá"));
         holder.inventory = inventory;
         inventory.setItem(10, item(Material.NAME_TAG, "Tìm tên: " + (request.draft.query().isEmpty() ? "Tất cả" : request.draft.query()), "Nhấp để nhập tên trong chat."));
-        inventory.setItem(12, item(Material.COMPASS, "Sắp xếp: " + JournalFilterState.SORT_LABELS.get(request.draft.sortIndex()), "Nhấp để đổi cách sắp xếp."));
-        inventory.setItem(14, item(Material.LEVER, "Chỉ mục đã câu: " + (request.draft.caughtOnly() ? "Bật" : "Tắt"), "Nhấp để thay đổi."));
+        inventory.setItem(12, sortItem(request.draft.sortIndex()));
+        inventory.setItem(14, caughtFilterItem(request.draft.caughtOnly()));
         inventory.setItem(18, item(Material.ARROW, "Quay lại", "Giữ bộ lọc đang dùng."));
         inventory.setItem(22, item(Material.LIME_DYE, "Áp dụng", "Xem nhật ký với bộ lọc này."));
         player.openInventory(inventory);
         request.phase = Phase.CLASSIC;
+    }
+
+    private static ItemStack sortItem(int activeSortIndex) {
+        ItemStack item = new ItemStack(Material.COMPASS);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text("Sắp xếp", net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            java.util.List<Component> lore = new java.util.ArrayList<>();
+            for (int i = 0; i < JournalFilterState.SORT_LABELS.size(); i++) {
+                boolean active = (i == activeSortIndex);
+                String label = JournalFilterState.SORT_LABELS.get(i);
+                lore.add(Component.text(active ? "▶ " + label : label,
+                        active ? net.kyori.adventure.text.format.NamedTextColor.GREEN : net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                        .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            }
+            meta.lore(lore);
+        });
+        return item;
+    }
+
+    private static ItemStack caughtFilterItem(boolean caughtOnly) {
+        ItemStack item = new ItemStack(Material.LEVER);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text("Bộ lọc chỉ mục", net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            java.util.List<Component> lore = java.util.List.of(
+                    Component.text(" "),
+                    Component.text(!caughtOnly ? "▶ Tất cả cá" : "Tất cả cá",
+                            !caughtOnly ? net.kyori.adventure.text.format.NamedTextColor.GREEN : net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
+                    Component.text(caughtOnly ? "▶ Chỉ mục đã câu" : "Chỉ mục đã câu",
+                            caughtOnly ? net.kyori.adventure.text.format.NamedTextColor.GREEN : net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
+                    Component.text(" "),
+                    Component.text("Nhấp để thay đổi bộ lọc!", net.kyori.adventure.text.format.NamedTextColor.WHITE)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
+            );
+            meta.lore(lore);
+        });
+        return item;
     }
 
     private static ItemStack item(Material material, String name, String lore) {

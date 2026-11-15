@@ -92,6 +92,13 @@ afterEvaluate {
                 description = "Allows access to the fish journal."
             }
 
+            for (minutes in listOf(180, 420, 840)) {
+                register("emf.autofish.weekly.$minutes") {
+                    description = "Grants $minutes minutes of free Auto Fishing each week."
+                    default = BukkitPluginDescription.Permission.Default.FALSE
+                }
+            }
+
             register("emf.sellall") {
                 description = "Allows users to use sellall."
             }

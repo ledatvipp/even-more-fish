@@ -32,6 +32,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Instant;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
@@ -68,7 +69,6 @@ public final class AutoFishingService implements Listener {
         private int sessionAutoSells = 0;
         private int sessionRodSwaps = 0;
         private int focusStreak = 0;
-        private int catchesUntilMicroBreak = randomRange(12, 18);
 
         ActiveSession(UUID playerId, long initialCastTick) {
             this.playerId = playerId;
@@ -128,6 +128,13 @@ public final class AutoFishingService implements Listener {
         return dataStore.getOrCreate(playerId);
     }
 
+    public long getAvailableSeconds(@NotNull Player player) {
+        AutoFishProfile profile = getProfile(player.getUniqueId());
+        long weekly = profile.getWeeklyRemainingSeconds(AutoFishWeeklyQuota.weekStart(Instant.now()), AutoFishWeeklyQuota.limitSeconds(player));
+        long purchased = profile.getRemainingSeconds();
+        return purchased > Long.MAX_VALUE - weekly ? Long.MAX_VALUE : purchased + weekly;
+    }
+
     public boolean isActive(@NotNull UUID playerId) {
         return activeSessions.containsKey(playerId);
     }
@@ -182,7 +189,7 @@ public final class AutoFishingService implements Listener {
     public boolean start(@NotNull Player player) {
         UUID playerId = player.getUniqueId();
         AutoFishProfile profile = getProfile(playerId);
-        if (profile.getRemainingSeconds() <= 0L) {
+        if (getAvailableSeconds(player) <= 0L) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, SoundCategory.PLAYERS, 0.8f, 0.75f);
             player.sendMessage(mm(
                     "<red><bold>✗ HẾT THỜI GIAN AUTO!</bold></red> <white>Bạn đã hết thời gian Auto Câu Cá. Hãy mua thêm Gói Thời Gian trong <yellow>/autofish</yellow>!</white>"
@@ -204,12 +211,12 @@ public final class AutoFishingService implements Listener {
         if (rodHand == null) {
             player.sendMessage(mm(
                     "<green><bold>✔ ĐÃ BẬT AI AUTO CÂU CÁ!</bold></green> <white>Hãy cầm <aqua>Cần Câu</aqua> trên tay và nhìn xuống mặt nước để bắt đầu (Còn lại: <yellow>"
-                            + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</yellow>" + vipTag + ").</white>"
+                            + AutoFishProfile.formatDuration(getAvailableSeconds(player)) + "</yellow>" + vipTag + ").</white>"
             ));
         } else {
             player.sendMessage(mm(
                     "<green><bold>✔ ĐÃ BẬT AI AUTO CÂU CÁ!</bold></green> <white>AI thông minh sẽ tự căn mặt nước, tự đổi cần & bán cá khi đầy túi (Còn lại: <yellow>"
-                            + AutoFishProfile.formatDuration(profile.getRemainingSeconds()) + "</yellow>" + vipTag + ").</white>"
+                            + AutoFishProfile.formatDuration(getAvailableSeconds(player)) + "</yellow>" + vipTag + ").</white>"
             ));
         }
         return true;
@@ -220,6 +227,7 @@ public final class AutoFishingService implements Listener {
         if (removed == null) {
             return;
         }
+        AutoFishMenuManager.getInstance().refreshToggle(player, this);
         FishHook activeHook = NativeFishingRightClickBridge.findActiveHook(player);
         if (activeHook != null && activeHook.isValid()) {
             activeHook.remove();
@@ -314,11 +322,12 @@ public final class AutoFishingService implements Listener {
 
             // 2. Consume 1 second of Auto-Fishing time every 20 ticks while holding rod
             if (secondBoundary) {
-                if (!profile.consumeOneSecond()) {
+                if (!profile.consumeAutoSecond(AutoFishWeeklyQuota.weekStart(Instant.now()), AutoFishWeeklyQuota.limitSeconds(player))) {
                     stop(player, "<red>Đã hết gói thời gian Auto Câu Cá! Hãy mua thêm thời gian trong <yellow>/autofish</yellow>.</red>");
                     continue;
                 }
-                long remaining = profile.getRemainingSeconds();
+                long remaining = getAvailableSeconds(player);
+                AutoFishMenuManager.getInstance().refreshToggle(player, this);
                 if (remaining == 60L || remaining == 15L) {
                     player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.PLAYERS, 0.8f, 1.6f);
                     player.sendMessage(mm(
@@ -359,7 +368,7 @@ public final class AutoFishingService implements Listener {
                                         + profile.getMissChancePercent() + "% • Nâng cấp trong /autofish)</gray>"
                         ));
                         if (profile.isAutoRecastOnMiss()) {
-                            session.nextCastTick = ticks + computeHumanCastDelayTicks(profile, session);
+                            session.nextCastTick = ticks + computeHumanCastDelayTicks(profile);
                         }
                     } else {
                         int damageBefore = getRodDamage(rod);
@@ -367,7 +376,7 @@ public final class AutoFishingService implements Listener {
                         if (reeled) {
                             maybeRestoreRodDurability(player, rodHand, damageBefore, profile, session);
                         }
-                        session.nextCastTick = ticks + computeHumanCastDelayTicks(profile, session);
+                        session.nextCastTick = ticks + computeHumanCastDelayTicks(profile);
                     }
                 }
                 continue;
@@ -422,7 +431,7 @@ public final class AutoFishingService implements Listener {
                                     + String.format(java.util.Locale.US, "%.1fs", remainSeconds)
                                     + "</white></yellow>" + comboTag
                                     + " <dark_gray>•</dark_gray> <green>⏱ "
-                                    + AutoFishProfile.formatCompactDuration(profile.getRemainingSeconds()) + "</green>"
+                                    + AutoFishProfile.formatCompactDuration(getAvailableSeconds(player)) + "</green>"
                     ));
                 }
             }
@@ -441,7 +450,7 @@ public final class AutoFishingService implements Listener {
                     session.hookSpawnTick = ticks;
                     session.hookMaxWaitTicks = randomRange(660, 760);
                     session.castVerifyWaterTick = ticks + randomRange(34, 44);
-                    session.nextCastTick = ticks + computeHumanCastDelayTicks(profile, session) + 40L;
+                    session.nextCastTick = ticks + computeHumanCastDelayTicks(profile) + 40L;
                 } else {
                     session.nextCastTick = ticks + randomRange(40, 65);
                 }
@@ -494,13 +503,13 @@ public final class AutoFishingService implements Listener {
                 session.scheduledReelTick = -1L;
                 session.castVerifyWaterTick = -1L;
                 session.hookSpawnTick = -1L;
-                session.nextCastTick = Math.max(session.nextCastTick, ticks + computeHumanCastDelayTicks(profile, session));
+                session.nextCastTick = Math.max(session.nextCastTick, ticks + computeHumanCastDelayTicks(profile));
             }
             case CAUGHT_ENTITY, REEL_IN -> {
                 session.scheduledReelTick = -1L;
                 session.castVerifyWaterTick = -1L;
                 session.hookSpawnTick = -1L;
-                session.nextCastTick = Math.max(session.nextCastTick, ticks + computeHumanCastDelayTicks(profile, session));
+                session.nextCastTick = Math.max(session.nextCastTick, ticks + computeHumanCastDelayTicks(profile));
             }
             case IN_GROUND -> {
                 session.scheduledReelTick = -1L;
@@ -527,19 +536,10 @@ public final class AutoFishingService implements Listener {
         stop(event.getEntity(), "<red>Đã tự động tắt Auto Câu Cá do nhân vật tử trận.</red>");
     }
 
-    private static long computeHumanCastDelayTicks(@NotNull AutoFishProfile profile, @NotNull ActiveSession session) {
+    private static long computeHumanCastDelayTicks(@NotNull AutoFishProfile profile) {
         int baseTicks = profile.getBaseCastDelayTicks();
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-        int variance = Math.max(4, (int) Math.round(baseTicks * 0.18D));
-        int jitter = rng.nextInt(-variance / 2, variance + 8);
-        long delay = Math.max(20L, baseTicks + jitter);
-
-        // AI Human Rhythm: occasional micro-break every 12..18 catches
-        if (session.sessionCatches > 0 && session.sessionCatches >= session.catchesUntilMicroBreak) {
-            session.catchesUntilMicroBreak = session.sessionCatches + randomRange(12, 18);
-            delay += randomRange(24, 44);
-        }
-        return delay;
+        int variance = Math.max(2, baseTicks / 12);
+        return Math.max(20L, baseTicks + ThreadLocalRandom.current().nextInt(-variance, variance + 1));
     }
 
     private boolean tryAutoSellInventory(@NotNull Player player, @NotNull ActiveSession session) {

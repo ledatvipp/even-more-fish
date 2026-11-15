@@ -328,6 +328,9 @@ public class FishingProcessor extends Processor<PlayerFishEvent> implements List
         }
         try {
             if (pending.doubleCatch()) AnimationManager.getInstance().playDoubleFishAnimation(event.getPlayer(), pending.fish());
+            if (plugin.getCatchCinematics() != null) {
+                plugin.getCatchCinematics().celebrateCatch(event.getPlayer(), pending.water(), pending.fish());
+            }
             boolean played = plugin.getCatchCinematics() != null && plugin.getCatchCinematics().play(
                 event.getPlayer(),
                 pending.water(),

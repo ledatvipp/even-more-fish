@@ -69,6 +69,7 @@ public final class AutoFishDataStore {
                             sec.getBoolean("first-purchase-claimed", false),
                             sec.getLong("total-auto-catches", 0L)
                     );
+                    profile.restoreWeeklyUsage(sec.getLong("weekly-start", Long.MIN_VALUE), sec.getLong("weekly-used-seconds", 0L));
                     profiles.put(uuid, profile);
                 } catch (IllegalArgumentException ignored) {
                 }
@@ -89,6 +90,8 @@ public final class AutoFishDataStore {
                 String path = "players." + entry.getKey() + ".";
                 synchronized (p) {
                     yaml.set(path + "remaining-seconds", p.getRemainingSeconds());
+                    yaml.set(path + "weekly-start", p.getWeeklyStart());
+                    yaml.set(path + "weekly-used-seconds", p.getWeeklyUsedSeconds());
                     yaml.set(path + "miss-reduction-level", p.getMissReductionLevel());
                     yaml.set(path + "cast-delay-level", p.getCastDelayLevel());
                     yaml.set(path + "reaction-level", p.getReactionLevel());

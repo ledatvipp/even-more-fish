@@ -177,11 +177,8 @@ public final class NativeFishingRightClickBridge {
     @Nullable
     public static FishHook findActiveHook(@NotNull Player player) {
         try {
-            for (FishHook hook : player.getWorld().getEntitiesByClass(FishHook.class)) {
-                if (hook.isValid() && player.equals(hook.getShooter())) {
-                    return hook;
-                }
-            }
+            FishHook hook = player.getFishHook();
+            return hook != null && hook.isValid() ? hook : null;
         } catch (RuntimeException | LinkageError ignored) {
         }
         return null;
@@ -225,9 +222,9 @@ public final class NativeFishingRightClickBridge {
                 }
             }
 
-            double jx = rng.nextGaussian() * 0.011D;
-            double jy = rng.nextGaussian() * 0.005D;
-            double jz = rng.nextGaussian() * 0.011D;
+            double jx = rng.nextGaussian() * 0.003D;
+            double jy = rng.nextGaussian() * 0.001D;
+            double jz = rng.nextGaussian() * 0.003D;
             hook.setVelocity(currentVel.add(new Vector(jx, jy, jz)));
         } catch (RuntimeException | LinkageError ignored) {
         }

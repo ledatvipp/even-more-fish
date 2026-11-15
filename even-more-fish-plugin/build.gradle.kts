@@ -158,6 +158,8 @@ testing {
                 implementation(files(ledatPlatformApiJar))
                 implementation(libs.junit.jupiter.api)
                 implementation(libs.mockito.core)
+                implementation(libs.headdatabase.api)
+                implementation(project(":addons:even-more-fish-addons-j21"))
                 implementation(libs.boostedyaml)
                 // NBT API's item signatures reference the server authlib even in boundary tests.
                 implementation("com.mojang:authlib:1.5.21")

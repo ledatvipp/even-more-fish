@@ -2,10 +2,10 @@ package org.evenmorefish.fish.addons.item;
 
 
 import com.oheers.fish.api.addons.ItemAddon;
-import com.oheers.fish.api.plugin.EMFPlugin;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
 
 public class HeadDatabaseItemAddon extends ItemAddon {
@@ -46,13 +46,12 @@ public class HeadDatabaseItemAddon extends ItemAddon {
         return api.getItemHead(id);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onItemsLoad(DatabaseLoadEvent event) {
         getLogger().info("Detected that HeadDatabase has finished loading...");
-        getLogger().info("Reloading EMF.");
         this.api = new HeadDatabaseAPI();
 
-        EMFPlugin.getInstance().reload(null);
+        // The core HDB listener reloads once after all item APIs are ready.
     }
 
 }

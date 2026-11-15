@@ -237,7 +237,7 @@ public class MainCommand {
                         profile.addSeconds(addedSeconds);
                         service.getDataStore().saveIfDirtyAsync();
                         String formattedAdded = com.oheers.fish.autofish.AutoFishProfile.formatDuration(addedSeconds);
-                        String formattedTotal = com.oheers.fish.autofish.AutoFishProfile.formatDuration(profile.getRemainingSeconds());
+                        String formattedTotal = com.oheers.fish.autofish.AutoFishProfile.formatDuration(service.getAvailableSeconds(target));
                         sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
                             "<dark_gray>[<aqua>⚡</aqua>]</dark_gray> <green>Đã cộng <yellow>+" + formattedAdded + "</yellow> thời gian Auto-Fishing cho <white>"
                                 + target.getName() + "</white>! <gray>(Tổng: <aqua>" + formattedTotal + "</aqua>)</gray>"

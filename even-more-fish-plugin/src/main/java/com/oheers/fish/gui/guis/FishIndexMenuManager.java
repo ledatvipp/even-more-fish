@@ -63,14 +63,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class FishIndexMenuManager implements Listener {
 
     public enum FilterMode {
-        ALL("<aqua>Tất cả</aqua>"),
-        UNLOCKED("<green>Đã mở khóa</green>"),
-        LOCKED("<gray>Chưa mở khóa</gray>");
+        ALL("Tất cả", "<aqua>Tất cả</aqua>"),
+        UNLOCKED("Đã mở khóa", "<green>Đã mở khóa</green>"),
+        LOCKED("Chưa mở khóa", "<gray>Chưa mở khóa</gray>");
 
+        private final String label;
         private final String displayMini;
 
-        FilterMode(String displayMini) {
+        FilterMode(String label, String displayMini) {
+            this.label = label;
             this.displayMini = displayMini;
+        }
+
+        public String label() {
+            return label;
         }
 
         public String displayMini() {
@@ -105,6 +111,7 @@ public final class FishIndexMenuManager implements Listener {
     private static final int SLOT_RARITY_NEXT = 8;
     private static final int SLOT_PAGE_PREV = 45;
     private static final int SLOT_HUB_INDEX = 46;
+    private static final int SLOT_FILTER = 47;
     private static final int SLOT_PROGRESS = 48;
     private static final int SLOT_PAGE_INFO = 49;
     private static final int SLOT_CLOSE = 50;
@@ -516,6 +523,25 @@ public final class FishIndexMenuManager implements Listener {
         ));
         holder.putAction(SLOT_HUB_INDEX, "OPEN_INDEX_HUB");
 
+        List<String> filterLore = new ArrayList<>();
+        filterLore.add(" ");
+        for (FilterMode mode : FilterMode.values()) {
+            if (mode == session.filterMode()) {
+                filterLore.add("<green>▶ " + mode.label() + "</green>");
+            } else {
+                filterLore.add("<gray>" + mode.label() + "</gray>");
+            }
+        }
+        filterLore.add(" ");
+        filterLore.add("<#C797FF>Nhấn <white>để chuyển");
+        filterLore.add("<white>chế độ lọc!");
+        inventory.setItem(SLOT_FILTER, createPane(
+            Material.HOPPER,
+            "<yellow>Bộ Lọc Cá</yellow>",
+            filterLore
+        ));
+        holder.putAction(SLOT_FILTER, "TOGGLE_FILTER");
+
         inventory.setItem(SLOT_PROGRESS, buildOverallProgressItem(rarities, selectedRarity, session.snapshot()));
         inventory.setItem(SLOT_PAGE_INFO, createPane(
             Material.PAPER,
@@ -877,6 +903,12 @@ public final class FishIndexMenuManager implements Listener {
                 sessions.remove(player.getUniqueId());
                 player.closeInventory();
                 player.performCommand("index");
+            }
+            case "TOGGLE_FILTER" -> {
+                SessionState next = session.withFilterMode(session.filterMode().next());
+                sessions.put(player.getUniqueId(), next);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.75F, 1.15F);
+                renderInventory(player, next, rarities, false);
             }
             case "CLOSE_SUB" -> {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7F, 0.9F);

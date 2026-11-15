@@ -74,7 +74,7 @@ public class AutoFishSubcommand {
         service.getDataStore().saveIfDirtyAsync();
 
         String formattedAdded = AutoFishProfile.formatDuration(addedSeconds);
-        String formattedTotal = AutoFishProfile.formatDuration(profile.getRemainingSeconds());
+        String formattedTotal = AutoFishProfile.formatDuration(service.getAvailableSeconds(target));
         sender.sendMessage(MM.deserialize(
             "<dark_gray>[<aqua>⚡</aqua>]</dark_gray> <green>Đã cộng <yellow>+" + formattedAdded + "</yellow> thời gian Auto-Fishing cho <white>"
                 + target.getName() + "</white>! <gray>(Tổng: <aqua>" + formattedTotal + "</aqua>)</gray>"

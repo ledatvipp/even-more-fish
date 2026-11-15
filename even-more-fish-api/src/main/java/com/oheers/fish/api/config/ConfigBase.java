@@ -3,6 +3,8 @@ package com.oheers.fish.api.config;
 import com.oheers.fish.api.plugin.EMFPlugin;
 import dev.dejvokep.boostedyaml.YamlDocument;
 import dev.dejvokep.boostedyaml.dvs.versioning.BasicVersioning;
+import dev.dejvokep.boostedyaml.dvs.versioning.Versioning;
+import dev.dejvokep.boostedyaml.dvs.Version;
 import dev.dejvokep.boostedyaml.libs.org.snakeyaml.engine.v2.exceptions.ScannerException;
 import dev.dejvokep.boostedyaml.settings.Settings;
 import dev.dejvokep.boostedyaml.settings.dumper.DumperSettings;
@@ -171,12 +173,38 @@ public class ConfigBase {
             return;
         }
         try {
-            getConfig().update();
+            YamlDocument document = getConfig();
+            UpdaterSettings settings = document.getUpdaterSettings();
+            YamlDocument defaults = document.getDefaults();
+            Versioning versioning = settings == null ? null : settings.getVersioning();
+            if (settings != null && !settings.isEnableDowngrading() && defaults != null && versioning != null) {
+                Version current = versioning.getDocumentVersion(document, false);
+                Version bundled = versioning.getDocumentVersion(defaults, true);
+                if (current != null && bundled != null && current.compareTo(bundled) > 0) {
+                    String label = getFileName() == null ? "configuration" : getFileName();
+                    plugin.getLogger().info("Preserving " + label + ": file version " + current.asID()
+                            + " is newer than bundled defaults " + bundled.asID() + "; automatic downgrade disabled.");
+                    return;
+                }
+            }
+            document.update();
         } catch (IOException | UnsupportedOperationException exception) {
-            plugin.getLogger().warning("Failed to update " + getFileName());
+            plugin.getLogger().warning("Failed to update " + getFileName() + " (" + updateFailureTypes(exception) + ")");
         }
     }
 
 
+
+    static String updateFailureTypes(Throwable failure) {
+        StringBuilder types = new StringBuilder();
+        for (int depth = 0; failure != null && depth < 4; depth++) {
+            if (depth > 0) {
+                types.append(" <- ");
+            }
+            types.append(failure.getClass().getSimpleName());
+            failure = failure.getCause();
+        }
+        return types.toString();
+    }
 
 }

@@ -49,7 +49,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * a skyward "Byebye!" wave and fade-out.
  */
 public final class VanillaCatchCinematicService {
-    private static final int FRAME_TICKS = 1;
+    private static final int FRAME_TICKS = 2;
     private static final int PARTICLES_PER_FRAME = 10;
     private static final int MAX_SCENES_PER_PLAYER = 3;
     private static final float ITEM_BASE_SCALE = 1.18f;
@@ -224,6 +224,7 @@ public final class VanillaCatchCinematicService {
     private final java.util.Set<UUID> pendingFirstTimeFlags = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.Set<String> sessionDiscoveredFish = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<UUID, Long> lastPlayed = new HashMap<>();
+    private final Map<UUID, Long> lastCelebrated = new HashMap<>();
     private final List<DecoyEntry> cachedDecoys = new ArrayList<>();
     private long lastDecoyCacheTimeNanos = 0L;
     private MyScheduledTask task;
@@ -366,6 +367,66 @@ public final class VanillaCatchCinematicService {
         return RareCatchPolicy.eligible(rarity.getId(), rarity.getIndex(), rarity.getWeight(), included, excluded);
     }
 
+    static boolean isExceptionalCatch(CatchRollTimeline.TierStyle tier, float length, double worth) {
+        return tier.isLegendaryOrAbove()
+                || (Float.isFinite(length) && length >= 200F)
+                || (Double.isFinite(worth) && worth >= 50_000D);
+    }
+
+    static boolean heartbeatInFrame(CatchRollTimeline.Durations durations, CatchRollTimeline.TierStyle tier, long elapsed) {
+        // Sample the skipped tick too so a two-tick display cadence keeps every heartbeat.
+        for (int offset = 0; offset < FRAME_TICKS; offset++) {
+            if (CatchRollTimeline.isHeartbeatTick(durations, tier, elapsed - offset)) return true;
+        }
+        return false;
+    }
+
+    /** Accepted native catches only; local particles reveal no vanished players or extra rewards. */
+    public void celebrateCatch(Player catcher, Location water, Fish fish) {
+        if (fish == null || fish.getRarity() == null || water == null || water.getWorld() == null
+                || !catcher.getWorld().equals(water.getWorld())
+                || !MainConfig.getInstance().getConfig().getBoolean("animations.rare-catch.enabled", true)) return;
+        try {
+            Rarity rarity = fish.getRarity();
+            var tier = CatchRollTimeline.TierStyle.forRarity(rarity.getId(), rarity.getIndex(), rarity.getWeight());
+            if (!isExceptionalCatch(tier, fish.getLength(), WorthNBT.getValue(fish).orElse(0D))) return;
+            long now = System.nanoTime();
+            lastCelebrated.entrySet().removeIf(entry -> now - entry.getValue() > 60_000_000_000L);
+            Long previous = lastCelebrated.get(catcher.getUniqueId());
+            if (previous != null && now - previous < 10_000_000_000L) return;
+            lastCelebrated.put(catcher.getUniqueId(), now);
+            Location center = water.clone().add(0, 0.7, 0);
+            var module = plugin.getSimulatorModule();
+            int viewers = 0;
+            for (Player viewer : water.getWorld().getPlayers()) {
+                if (!viewer.canSee(catcher) || viewer.getLocation().distanceSquared(water) > 32 * 32) continue;
+                if (module != null && (!module.ownEffectsEnabled(viewer.getUniqueId())
+                        || module.ownHudProfile(viewer.getUniqueId()) == UiProfile.OFF
+                        || module.ownHudProfile(viewer.getUniqueId()) == UiProfile.REDUCED_MOTION)) continue;
+                if (++viewers > 32) break;
+                if (module == null || module.ownHudProfile(viewer.getUniqueId()).particle()) {
+                    if (PARTICLE_TOTEM != null) viewer.spawnParticle(PARTICLE_TOTEM, center, 24, 0.5, 0.7, 0.5, 0.25);
+                    if (PARTICLE_SPLASH != null) viewer.spawnParticle(PARTICLE_SPLASH, center, 16, 0.6, 0.2, 0.6, 0.15);
+                    if (PARTICLE_END_ROD != null) {
+                        for (int point = 0; point < 32; point++) {
+                            double angle = point * Math.PI / 8;
+                            double radius = point < 16 ? 1.4 : 0.8;
+                            viewer.spawnParticle(PARTICLE_END_ROD, center.clone().add(
+                                    Math.cos(angle) * radius, point < 16 ? 0.2 : 1.2, Math.sin(angle) * radius),
+                                    1, 0, 0, 0, 0.04);
+                        }
+                    }
+                }
+                if (module == null || module.ownHudProfile(viewer.getUniqueId()).sound()) {
+                    viewer.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_BLAST, SoundCategory.PLAYERS, 0.7F, 1.2F);
+                    viewer.playSound(center, Sound.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.PLAYERS, 0.8F, 1.5F);
+                }
+            }
+        } catch (RuntimeException | LinkageError error) {
+            plugin.debug("Catch celebration failed: " + error.getMessage());
+        }
+    }
+
     public boolean play(Player player, Location water, Fish fish, ItemStack caughtItem) {
         boolean doubled = caughtItem != null && caughtItem.getAmount() > 1;
         return play(player, water, fish, caughtItem, 1, 0, doubled);
@@ -464,7 +525,7 @@ public final class VanillaCatchCinematicService {
                 entity.setGlowing(false);
                 entity.setInvulnerable(true);
                 entity.setSilent(true);
-                entity.setBillboard(Display.Billboard.CENTER);
+                entity.setBillboard(Display.Billboard.VERTICAL);
                 entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
                 entity.setItemStack(initialItem);
                 entity.setCustomNameVisible(false);
@@ -748,7 +809,7 @@ public final class VanillaCatchCinematicService {
                     }
                     // Warden Heartbeat in the final window of ROLLING for Epic+
                     if (soundAllowed && frame.phase() == CatchRollTimeline.Phase.ROLLING
-                            && CatchRollTimeline.isHeartbeatTick(scene.durations, scene.tierStyle, rollElapsed)) {
+                            && heartbeatInFrame(scene.durations, scene.tierStyle, rollElapsed)) {
                         float hbPitch = (float) (0.72 + 0.36 * frame.progress());
                         viewer.playSound(scene.anchor, Sound.ENTITY_WARDEN_HEARTBEAT, SoundCategory.PLAYERS, 0.85f, hbPitch);
                     }
@@ -797,11 +858,11 @@ public final class VanillaCatchCinematicService {
                     float chestExtraY = 0.0f;
                     Quaternionf itemRot;
                     if (scene.firstCatch && !frame.revealResult()) {
-                        double shakeIntensity = 0.14 + 0.32 * frame.progress();
+                        double shakeIntensity = 0.06 + 0.12 * frame.progress();
                         float shakeZ = (float) (Math.sin(rollElapsed * 1.65) * shakeIntensity);
                         float shakeY = (float) (Math.cos(rollElapsed * 1.15) * shakeIntensity * 0.85);
-                        chestExtraY = (float) (-0.28 * (1.0 - frame.progress()) + Math.abs(Math.sin(rollElapsed * 1.35)) * 0.12);
-                        itemScale *= (float) (1.08 + 0.14 * Math.abs(Math.sin(rollElapsed * 1.35)));
+                        chestExtraY = (float) (-0.28 * (1.0 - frame.progress()) + Math.abs(Math.sin(rollElapsed * 0.65)) * 0.04);
+                        itemScale *= (float) (1.04 + 0.06 * Math.abs(Math.sin(rollElapsed * 0.65)));
                         itemRot = new Quaternionf()
                                 .rotateY((float) frame.yawRadians() + shakeY)
                                 .rotateZ((float) frame.rollRadians() + shakeZ);
@@ -1578,6 +1639,7 @@ public final class VanillaCatchCinematicService {
         }
         activeScenes.clear();
         lastPlayed.clear();
+        lastCelebrated.clear();
         cachedDecoys.clear();
         lastDecoyCacheTimeNanos = 0L;
         if (task != null) {

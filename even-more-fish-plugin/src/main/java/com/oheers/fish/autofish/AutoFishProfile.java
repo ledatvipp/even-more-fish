@@ -18,6 +18,8 @@ public final class AutoFishProfile {
 
     private final UUID playerId;
     private long remainingSeconds;
+    private long weeklyStart = Long.MIN_VALUE;
+    private long weeklyUsedSeconds;
     private int missReductionLevel;
     private int castDelayLevel;
     private int reactionLevel;
@@ -121,6 +123,38 @@ public final class AutoFishProfile {
 
     public synchronized long getRemainingSeconds() {
         return remainingSeconds;
+    }
+
+    public synchronized long getWeeklyStart() {
+        return weeklyStart;
+    }
+
+    public synchronized long getWeeklyUsedSeconds() {
+        return weeklyUsedSeconds;
+    }
+
+    public synchronized void restoreWeeklyUsage(long start, long usedSeconds) {
+        weeklyStart = start;
+        weeklyUsedSeconds = Math.max(0L, Math.min(604800L, usedSeconds));
+    }
+
+    public synchronized long getWeeklyRemainingSeconds(long weekStart, long limitSeconds) {
+        // A clock moving backwards must not grant the same weekly allowance twice.
+        if (weekStart > weeklyStart) {
+            weeklyStart = weekStart;
+            weeklyUsedSeconds = 0L;
+            dirty = true;
+        }
+        return Math.max(0L, limitSeconds - weeklyUsedSeconds);
+    }
+
+    public synchronized boolean consumeAutoSecond(long weekStart, long limitSeconds) {
+        if (getWeeklyRemainingSeconds(weekStart, limitSeconds) > 0L) {
+            weeklyUsedSeconds++;
+            dirty = true;
+            return true;
+        }
+        return consumeOneSecond();
     }
 
     public synchronized void addSeconds(long secondsToAdd) {
