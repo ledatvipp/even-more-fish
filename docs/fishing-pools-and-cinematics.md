@@ -1,6 +1,6 @@
 # Hồ câu và cinematic cá hiếm
 
-Cập nhật: 2026-10-18. Các tính năng này dùng luồng câu EMF thông thường; không cần bật Simulator hoặc reward bridge.
+Cập nhật: 2026-11-14. Các tính năng này dùng luồng câu EMF thông thường; không cần bật Simulator hoặc reward bridge.
 
 ## Bảng hạng và mồi câu
 
@@ -132,4 +132,37 @@ Kết quả kiểm tra cục bộ và các giới hạn bằng chứng được 
 
 Hạt lúc cá cắn chỉ gửi cho người câu, sau khi sự kiện BITE được chấp nhận ở MONITOR. Tôn trọng lựa chọn effects/particle cá nhân, tối đa 19 hạt mỗi lần cắn. BITE bị hủy không phát hiệu ứng. Common luôn bỏ qua cinematic, kể cả khi bật all-rarities. Simulator và reward bridge tiếp tục tắt.
 
-Cảnh native mặc định dùng đúng bản xem trước của vật phẩm đã trao trong cả pha chuyển động và reveal. nimations.rare-catch.cinematic.candidate-preview: true cho phép xem lại các mẫu cá trang trí; material-wheel là lựa chọn riêng và mặc định tắt. Hai lựa chọn này không chọn hoặc trao thêm phần thưởng. Auto Câu Cá chỉ tăng số cá bắt và chuỗi tập trung khi CAUGHT_FISH được chấp nhận, không tăng khi chỉ giật cần thành công, câu thực thể hoặc sự kiện bị hủy.
+Cảnh native mặc định dùng đúng bản xem trước của vật phẩm đã trao trong cả pha chuyển động và reveal. animations.rare-catch.cinematic.candidate-preview: true cho phép xem lại các mẫu cá trang trí; material-wheel là lựa chọn riêng và mặc định tắt. Hai lựa chọn này không chọn hoặc trao thêm phần thưởng. Auto Câu Cá chỉ tăng số cá bắt và chuỗi tập trung khi CAUGHT_FISH được chấp nhận, không tăng khi chỉ giật cần thành công, câu thực thể hoặc sự kiện bị hủy.
+
+
+## Auto Câu Cá theo tuần và hiệu ứng native (2026-11-14)
+
+### Dành cho người chơi
+
+- Mở `/autofish`, dùng nút **Auto Câu Cá** để bật hoặc tắt. Mỗi người mặc định có **1 giờ mỗi tuần**; quyền hạng có thể nâng lên 3, 7 hoặc 14 giờ.
+- Quota làm mới vào **00:00 thứ Hai**, múi giờ `Asia/Ho_Chi_Minh`, theo tuần lịch. Đây không phải khoảng 7 ngày tính từ lần bật đầu tiên.
+- Auto Câu Cá dùng quota tuần trước, rồi mới trừ số dư thời gian đã mua hoặc dùng thử đang có. Reset tuần không xóa số dư đó.
+- Lore nút bật/tắt gọn gồm trạng thái, thanh 20 đoạn và phần trăm **quota tuần đã dùng**. Thanh đầy nghĩa là đã dùng hết quota tuần; thời gian mua/dùng thử còn lại vẫn dùng tiếp được.
+- Nhịp câu giảm độ lệch ngẫu nhiên và bỏ các lần nghỉ ngắn tự chèn; nâng cấp và quy tắc xác nhận cá bắt thành công hiện có vẫn áp dụng.
+- Vật phẩm trong cinematic native quay mặt về người xem theo trục đứng, nội suy chuyển động mỗi 2 tick. Cá bắt đặc biệt có thêm particle và âm thanh mừng cho người đứng gần; lựa chọn hiệu ứng cá nhân vẫn được tôn trọng.
+
+### Quyền và dữ liệu dành cho quản trị viên
+
+| Quyền | Quota mỗi tuần |
+|---|---:|
+| Không có quyền tăng quota | 1 giờ |
+| `emf.autofish.weekly.180` | 3 giờ |
+| `emf.autofish.weekly.420` | 7 giờ |
+| `emf.autofish.weekly.840` | 14 giờ |
+
+Nếu có nhiều quyền, lấy mức cao nhất, không cộng dồn. Thay đổi quyền không xóa thời gian đã dùng trong tuần; quota còn lại được tính từ hạn mức hiện tại trừ lượng đã dùng.
+
+`autofish-data.yml` lưu `weekly-start` và `weekly-used-seconds` riêng cho từng UUID để giữ mốc tuần và lượng dùng qua restart. Số dư thời gian có sẵn tiếp tục được lưu riêng. Mốc tuần mới được áp dụng khi đọc hoặc sử dụng quota; không cần chạy lệnh cấp lại hàng tuần.
+
+Luồng Auto Câu Cá lấy phao trực tiếp bằng `Player#getFishHook()` với tra cứu O(1), tránh quét entity xung quanh mỗi tick. Thay đổi này không bật Simulator. ItemDisplay dùng billboard `VERTICAL` và nội suy 2 tick để giảm rung hình; độ mượt trên client thật vẫn cần kiểm tra.
+
+Hiệu ứng mừng công khai chỉ áp dụng cho cá bắt native đã được chấp nhận khi thỏa **ít nhất một** điều kiện: hạng **Legendary trở lên**, chiều dài **từ 200 cm**, hoặc giá trị **từ 50.000**. Hiệu ứng bị chặn nếu `animations.rare-catch.enabled: false`; mỗi người câu có cooldown 10 giây. Chỉ tối đa 32 người xem trong cùng world, cách phao không quá 32 block, và nhìn thấy người câu được nhận hiệu ứng. Tùy chọn effects, HUD `off`/`reduced-motion`, particle và sound cá nhân tiếp tục được kiểm tra. Đây chỉ là particle/âm thanh gửi cục bộ cho từng người xem, không gây sát thương hoặc trao thêm phần thưởng.
+
+### Triển khai và kiểm tra
+
+Không bật thêm Simulator, preview visual/AI hoặc reward bridge cho bản cập nhật native này. Đã upload JAR lên Skyblock và BoxPvP, đọc lại SHA-256 khớp; các JAR và cấu hình runtime khác không được chỉnh sửa. BoxPvP là lần cài EMF mới. Cần **restart sạch** cả hai server để nạp thay đổi; không dùng reload làm bằng chứng đã nạp JAR mới. Chưa có xác nhận startup trên Paper/client thật. Trước khi nghiệm thu cần kiểm tra reset tuần, các mức quyền, giữ số dư cũ, lore menu và hình ảnh cinematic. Xem [báo cáo xác minh và upload](../plans/20261114-autofish-weekly-polish/reports/verification-and-deployment.md).

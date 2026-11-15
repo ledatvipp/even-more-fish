@@ -35,6 +35,13 @@
    ```
    The first four keys belong to `simulator.yml`; visual/cinematic flags belong to `simulator/effects.yml`. `reward-bridge.paper-gates-verified` is an **admin acknowledgment flag**, not a runtime assertion.
 
+### Catalog weights (2026-11-04)
+
+Ambient preview uses native EMF base fish weights: an omitted or zero fish weight counts as 1,
+matching ordinary fishing. Explicit positive fish weights still multiply the rarity weight.
+Disabled rarities, HUNT-only fish and negative or nonfinite weights remain excluded. This changes
+catalog eligibility only; preview does not initialize fish, grant rewards or enable any simulator flag.
+
 ### Worlds loaded after EMF (2026-11-01)
 
 `simulator.yml` validates an enabled zone's `world` as a nonblank string. A valid world configured by a multi-world plugin may load after EMF enables; this no longer rejects the entire last-good Simulator snapshot. Blank/non-string world names, malformed cuboid bounds and missing region-provider IDs still fail validation.
