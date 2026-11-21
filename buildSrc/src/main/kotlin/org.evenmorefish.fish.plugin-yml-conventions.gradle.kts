@@ -20,6 +20,7 @@ afterEvaluate {
         foliaSupported = true
 
         softDepend = listOf(
+            "AdvancedEnchantments",
             "AuraSkills",
             "Denizen",
             "EcoItems",

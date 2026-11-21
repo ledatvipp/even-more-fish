@@ -327,6 +327,7 @@ public class FishingProcessor extends Processor<PlayerFishEvent> implements List
             return;
         }
         try {
+            com.oheers.fish.rewards.FishingAERewards.accepted(event);
             if (pending.doubleCatch()) AnimationManager.getInstance().playDoubleFishAnimation(event.getPlayer(), pending.fish());
             if (plugin.getCatchCinematics() != null) {
                 plugin.getCatchCinematics().celebrateCatch(event.getPlayer(), pending.water(), pending.fish());

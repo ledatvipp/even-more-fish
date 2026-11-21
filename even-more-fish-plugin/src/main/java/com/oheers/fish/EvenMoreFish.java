@@ -192,6 +192,7 @@ public abstract class EvenMoreFish extends EMFPlugin {
         // Attempt to resume a competition if the temporary file exists.
         Competition.resumeFromFile();
 
+        com.oheers.fish.rewards.FishingAERewards.start(this);
         getLogger().info(() -> "EvenMoreFish by Oheers : Enabled");
     }
 
@@ -251,6 +252,7 @@ public abstract class EvenMoreFish extends EMFPlugin {
 
     @Override
     public void onDisable() {
+        com.oheers.fish.rewards.FishingAERewards.stop();
         // Stop all owned Simulator probes before plugins, hooks and fish catalogs unload.
         if (simulatorModule != null) simulatorModule.shutdown();
         if (catchCinematics != null) catchCinematics.clear();

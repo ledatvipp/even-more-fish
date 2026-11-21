@@ -1,0 +1,18 @@
+# Supplementary books after delivered native EMF catches; never a second fishing engine.
+config-version: 1
+enabled: false
+manual-chance: 0.005
+auto-chance: 0.0025
+cooldown-seconds: 60
+hourly-cap: 6
+max-level: 2
+rarity-weights:
+  SIMPLE: 50
+  UNIQUE: 27
+  ELITE: 15
+  ULTIMATE: 6
+  LEGENDARY: 1.5
+  FABLED: 0.5
+messages:
+  received: '<#55D68A>Bạn câu được một <white>sách phù phép AE</white>!'
+  review-required: '<#FFA94D>Sách câu cá đang chờ kiểm tra. Hãy báo quản trị viên.'
