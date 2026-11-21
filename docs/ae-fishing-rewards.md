@@ -20,9 +20,9 @@ Hook gọi bên trong `FishingProcessor.afterFishEvent`, sau khi có pending cat
 
 ## SkyRNG: provider owns the commit
 
-Hai SkyRNG không cài EMF. Không cài toàn bộ EMF để thêm thưởng. LeDatPickaxe sở hữu settlement câu cá; LeDatRNG/Codex quan sát activity. Adapter chung `FishingAERewards.committed(Player, UUID, boolean)` chỉ được gọi sau settlement thật, trên owner thread, dùng UUID operation gốc ổn định qua retry. Không tạo UUID mới trên retry và không dùng HUD/timer/raw MONITOR thay bằng chứng commit.
+Hai SkyRNG không cài EMF. Không cài toàn bộ EMF để thêm thưởng. LeDatPickaxe sở hữu settlement câu cá và gọi `LeDatRngPlugin.onFishingCatchCommitted(UUID operationId, UUID playerId, boolean automatic)` sau credit dương thật. Manual dùng UUID hook gốc; auto gán UUID một lần tại origin, trước settlement trễ. Owner và publication claim được xác nhận trước callback. Không tạo UUID mới trên retry hoặc dùng HUD/timer/raw MONITOR thay bằng chứng commit.
 
-RNG agent sở hữu một JAR composition cuối cùng, gồm mining/rare/ore/Codex/fishing. Adapter/classes không chứng minh provider đã nối hook. Không bật nhánh SkyRNG khi chưa có callback receipt hợp lệ; không sửa Codex/Pickaxe từ scope EMF này.
+RNG agent sở hữu một JAR composition cuối cùng, gồm mining/rare/ore/Codex/fishing, dùng native gateway và delivery protocol hiện có; không sao chép backend SQLite hay cài plugin EMF. RNG giữ pool53, sách cấp I, success80/destroy0 và trọng số destination45/30/15/7/2,5/0,5; xác suất/cooldown/quota như trên. Skyblock vẫn dùng pool đang cài, cấp I–II và success100/destroy0. Kiểm tra linkage của đúng cặp Pickaxe/RNG JAR, backup và cold SHA trước khi operator restart.
 
 ## Kiểm tra và triển khai
 
