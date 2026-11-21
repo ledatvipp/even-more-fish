@@ -9,6 +9,7 @@ import java.util.UUID;
 /** Owns only supplemental books, never the native fish or its delivery. */
 public final class FishingBookLedger {
     public record Entry(String receipt, UUID owner, String state, String enchant, int level, byte[] book) { }
+    public record Choice(String enchant, int level) { }
     private FishingBookLedger() { }
 
     public static void initialize(Connection c) throws SQLException {
@@ -27,6 +28,15 @@ public final class FishingBookLedger {
                 return new Entry(receipt, owner, row.getString("state"), row.getString("enchant"), row.getInt("level"), row.getBytes("book"));
             }
         }
+    }
+
+    /** Public catch identity is a replay key only; never feed it into the private lottery. */
+    public static Entry decide(Connection c, String receipt, UUID owner, boolean automatic, long now,
+                               long cooldownMillis, int hourlyCap, java.util.function.Supplier<Choice> draw) throws SQLException {
+        Entry prior = find(c, receipt, owner);
+        if (prior != null) return prior;
+        Choice choice = draw.get();
+        return admit(c, receipt, owner, automatic, choice.enchant(), choice.level(), now, cooldownMillis, hourlyCap);
     }
 
     /** First decision, cooldown and hourly quota commit together, across manual/auto and restart. */

@@ -133,15 +133,16 @@ public final class FishingAERewards implements Listener {
         if (service == null || !service.active || player == null || catchId == null || player.getGameMode() != GameMode.SURVIVAL) return;
         UUID owner = player.getUniqueId(); String receipt = "catch:" + catchId;
         try {
-            var random = FishingBookRoll.random(receipt);
-            String enchant = ""; int level = 0;
-            if (FishingBookRoll.wins(service.config.getDouble(automatic ? "auto-chance" : "manual-chance"), random)) {
-                var chosen = FishingBookRoll.choose(service.pool, service.weights, random);
-                enchant = chosen.id(); level = 1 + random.nextInt(Math.min(chosen.maximum(), service.config.getInt("max-level", 2)));
-            }
-            String selected = enchant; int frozenLevel = level; long now = System.currentTimeMillis();
-            service.sql(c -> { try { return FishingBookLedger.admit(c, receipt, owner, automatic, selected, frozenLevel, now,
-                    service.config.getInt("cooldown-seconds", 60) * 1000L, service.config.getInt("hourly-cap", 6)); }
+            long now = System.currentTimeMillis();
+            double chance = service.config.getDouble(automatic ? "auto-chance" : "manual-chance");
+            int maximum = service.config.getInt("max-level", 2), hourlyCap = service.config.getInt("hourly-cap", 6);
+            long cooldown = service.config.getInt("cooldown-seconds", 60) * 1000L;
+            service.sql(c -> { try { return FishingBookLedger.decide(c, receipt, owner, automatic, now, cooldown, hourlyCap, () -> {
+                    var random = FishingBookRoll.random();
+                    if (!FishingBookRoll.wins(chance, random)) return new FishingBookLedger.Choice("", 0);
+                    var chosen = FishingBookRoll.choose(service.pool, service.weights, random);
+                    return new FishingBookLedger.Choice(chosen.id(), 1 + random.nextInt(Math.min(chosen.maximum(), maximum)));
+                }); }
                 catch (SQLException failure) { throw new java.util.concurrent.CompletionException(failure); } })
                 .whenComplete((entry, error) -> {
                     if (error != null) service.warn("admission", error);

@@ -16,7 +16,7 @@ Sau một lượt câu thành công, người chơi có cơ hội nhận sách d
 
 Hook gọi bên trong `FishingProcessor.afterFishEvent`, sau khi có pending catch đã giao và kiểm tra hủy tại MONITOR. Không đăng ký thêm PlayerFishEvent listener và không dùng EMFFishCaughtEvent trước commit. Typed catch rewards hiện có không mang UUID receipt và chạy trước delivery, nên không dùng chúng để giả lập random bonus.
 
-`ae-fishing-rewards.db` chỉ chứa receipt sách. Quyết định MISS/LIMITED/PLANNED và quota được chốt cùng transaction trước khi tạo sách native. READY giữ bytes sách đầu tiên. Claim có compare-and-set; CLAIMING chưa rõ kết quả không tự trả lại READY. Native fish không bị rollback hay thay bytes do sách bonus.
+`ae-fishing-rewards.db` chỉ chứa receipt sách. UUID hook chỉ là khóa chống lặp, không phải seed xổ số. SecureRandom riêng chỉ được gọi khi chưa có quyết định; kết quả MISS/LIMITED/PLANNED, ID/cấp sách và quota được chốt trước khi tạo sách native. Replay/reconnect đọc kết quả cũ, không rút lại entropy hoặc chọn lại sách. READY giữ bytes sách đầu tiên. Claim có compare-and-set; CLAIMING chưa rõ kết quả không tự trả lại READY. Native fish không bị rollback hay thay bytes do sách bonus.
 
 ## SkyRNG: provider owns the commit
 

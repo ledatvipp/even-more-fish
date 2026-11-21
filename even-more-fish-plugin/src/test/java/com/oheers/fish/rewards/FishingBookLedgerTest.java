@@ -39,6 +39,23 @@ class FishingBookLedgerTest {
         }
     }
 
+    @Test void publicReceiptReplayNeverInvokesPrivateDrawAgainEvenAfterReopen() throws Exception {
+        UUID owner = UUID.randomUUID(); var draws = new java.util.concurrent.atomic.AtomicInteger();
+        try (var c = DriverManager.getConnection(url("private.db"))) {
+            FishingBookLedger.initialize(c);
+            var first = FishingBookLedger.decide(c, "catch:public-hook", owner, false, 1000, 60000, 6, () -> {
+                draws.incrementAndGet(); return new FishingBookLedger.Choice("a", 2);
+            });
+            assertEquals("a", first.enchant());
+        }
+        try (var c = DriverManager.getConnection(url("private.db"))) {
+            var replay = FishingBookLedger.decide(c, "catch:public-hook", owner, true, 90000, 0, 100, () -> {
+                fail("Replay must not create a new private lottery draw"); return new FishingBookLedger.Choice("changed", 1);
+            });
+            assertEquals("a", replay.enchant()); assertEquals(2, replay.level()); assertEquals(1, draws.get());
+        }
+    }
+
     @Test void manualAndAutoSharePersistentCooldownAndHourlyQuota() throws Exception {
         var owner = UUID.randomUUID();
         try (var c = DriverManager.getConnection(url("quota.db"))) {

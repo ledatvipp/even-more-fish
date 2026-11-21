@@ -1,17 +1,15 @@
 package com.oheers.fish.rewards;
 
-import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 
 public final class FishingBookRoll {
+    private static final SecureRandom PRIVATE_DRAW = new SecureRandom();
     public record Enchant(String id, String group, int maximum) { }
     private FishingBookRoll() { }
-    public static Random random(String receipt) {
-        return new Random(UUID.nameUUIDFromBytes(("fishing-ae-v1:" + receipt).getBytes(StandardCharsets.UTF_8)).getLeastSignificantBits());
-    }
+    static Random random() { return PRIVATE_DRAW; }
     public static boolean wins(double chance, Random random) {
         if (!Double.isFinite(chance) || chance < 0 || chance > 1) throw new IllegalArgumentException("Invalid catch book chance");
         return random.nextDouble() < chance;
